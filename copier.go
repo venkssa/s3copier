@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 	"log"
@@ -16,6 +17,7 @@ import (
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
@@ -117,7 +119,9 @@ type Copier struct {
 }
 
 func (c *Copier) Copy(key string) (int64, error) {
-	op, err := c.client.GetObject(&s3.GetObjectInput{Bucket: aws.String(c.bucket), Key: aws.String(key)})
+	op, err := c.client.GetObjectWithContext(context.Background(), &s3.GetObjectInput{Bucket: aws.String(c.bucket), Key: aws.String(key)}, func(r *request.Request) {
+		r.HTTPRequest.Header.Add("Accept-Encoding", "gzip")
+	})
 	if err != nil {
 		return 0, err
 	}
