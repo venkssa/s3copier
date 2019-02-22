@@ -25,6 +25,7 @@ import (
 var baseDir = flag.String("baseDir", "", "Directory to copy s3 contents to. (required)")
 var bucket = flag.String("bucket", "", "S3 Bucket to copy contents from. (required)")
 var concurrency = flag.Int("concurrency", 10, "Number of concurrent connections to use.")
+var prefix = flag.String("prefix", "", "Copy only keys that start with the prefix.")
 var queueSize = flag.Int("queueSize", 100, "Size of the queue")
 
 func main() {
@@ -40,10 +41,10 @@ func main() {
 	}
 	s3Client := s3.New(sess)
 
-	DownloadBucket(s3Client, *bucket, *baseDir, *concurrency, *queueSize)
+	DownloadBucket(s3Client, *bucket, *baseDir, *concurrency, *queueSize, *prefix)
 }
 
-func DownloadBucket(client *s3.S3, bucket, baseDir string, concurrency, queueSize int) {
+func DownloadBucket(client *s3.S3, bucket, baseDir string, concurrency, queueSize int, prefix string) {
 	keysChan := make(chan string, queueSize)
 	cpyr := &Copier{
 		client:  client,
@@ -73,7 +74,7 @@ func DownloadBucket(client *s3.S3, bucket, baseDir string, concurrency, queueSiz
 	}
 
 	dc := &DirectoryCreator{baseDir: baseDir, dirsSeen: make(map[string]bool), newDirPermission: 0755}
-	req := &s3.ListObjectsV2Input{Bucket: aws.String(bucket)}
+	req := &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix)}
 	err := client.ListObjectsV2Pages(req, func(resp *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, content := range resp.Contents {
 			key := *content.Key
