@@ -24,6 +24,7 @@ import (
 
 var baseDir = flag.String("baseDir", "", "Directory to copy s3 contents to. (required)")
 var bucket = flag.String("bucket", "", "S3 Bucket to copy contents from. (required)")
+var prefix = flag.String("prefix", "", "S3 Prefix to copy contents from. (optional)")
 var concurrency = flag.Int("concurrency", 10, "Number of concurrent connections to use.")
 var queueSize = flag.Int("queueSize", 100, "Size of the queue")
 
@@ -40,14 +41,15 @@ func main() {
 	}
 	s3Client := s3.New(sess)
 
-	DownloadBucket(s3Client, *bucket, *baseDir, *concurrency, *queueSize)
+	DownloadBucket(s3Client, *bucket, *baseDir, *prefix, *concurrency, *queueSize)
 }
 
-func DownloadBucket(client *s3.S3, bucket, baseDir string, concurrency, queueSize int) {
+func DownloadBucket(client *s3.S3, bucket, baseDir, prefix string, concurrency, queueSize int) {
 	keysChan := make(chan string, queueSize)
 	cpyr := &Copier{
 		client:  client,
 		bucket:  bucket,
+		prefix:  prefix,
 		baseDir: baseDir,
 		bufPool: &sync.Pool{
 			New: func() interface{} {
@@ -74,10 +76,13 @@ func DownloadBucket(client *s3.S3, bucket, baseDir string, concurrency, queueSiz
 
 	dc := &DirectoryCreator{baseDir: baseDir, dirsSeen: make(map[string]bool), newDirPermission: 0755}
 	req := &s3.ListObjectsV2Input{Bucket: aws.String(bucket)}
+	if prefix != "" {
+		req.Prefix = aws.String(prefix)
+	}
 	err := client.ListObjectsV2Pages(req, func(resp *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, content := range resp.Contents {
 			key := *content.Key
-			if err := dc.MkDirIfNeeded(key); err != nil {
+			if err := dc.MkDirIfNeeded(strings.TrimPrefix(key, prefix)); err != nil {
 				log.Fatalf("Failed to create directory for key %v due to %v", key, err)
 			}
 			keysChan <- key
@@ -114,6 +119,7 @@ func (dc *DirectoryCreator) MkDirIfNeeded(key string) error {
 type Copier struct {
 	client  *s3.S3
 	bucket  string
+	prefix  string
 	baseDir string
 	bufPool *sync.Pool
 }
@@ -127,7 +133,7 @@ func (c *Copier) Copy(key string) (int64, error) {
 	}
 	defer op.Body.Close()
 
-	f, err := os.Create(path.Join(c.baseDir, key))
+	f, err := os.Create(path.Join(c.baseDir, strings.TrimPrefix(key, c.prefix)))
 	if err != nil {
 		io.Copy(ioutil.Discard, op.Body)
 		return 0, err

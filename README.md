@@ -26,7 +26,7 @@ This creates a devtoolsslackbot binary which you can run by
 ```
 export AWS_PROFILE=<profile> # set if you need to use a non-default profile.
 export AWS_REGION=<region> 
-./s3copier -bucket=<bucketname> -baseDir=<path> -concurrency=<number of concurrent connections to use> -queueSize=<number of keys to queue up to copy>
+./s3copier -bucket=<bucketname> -baseDir=<path> -concurrency=<number of concurrent connections to use> -queueSize=<number of keys to queue up to copy> -prefix=<bucket prefix to copy from>
 ```
 
 To build a LINUX binary on Mac
