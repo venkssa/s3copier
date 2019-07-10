@@ -65,7 +65,7 @@ func DownloadBucket(client *s3.S3, bucket, baseDir string, concurrency, queueSiz
 			for key := range keysChan {
 				n, err := cpyr.Copy(key)
 				if err != nil {
-					log.Printf("Failed to download key %v, due to %v", key, err)
+					log.Fatalf("Failed to download key %v, due to %v", key, err)
 				}
 				statsTracker.Inc(n)
 			}
@@ -86,7 +86,7 @@ func DownloadBucket(client *s3.S3, bucket, baseDir string, concurrency, queueSiz
 	})
 	close(keysChan)
 	if err != nil {
-		log.Printf("Failed to list objects for bucket %v: %v", bucket, err)
+		log.Fatalf("Failed to list objects for bucket %v: %v", bucket, err)
 	}
 	wg.Wait()
 }
